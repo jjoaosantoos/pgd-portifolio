@@ -12,12 +12,17 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem,
     QComboBox,
     QFrame,
+    QHeaderView,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QColor
 from PyQt6.QtWidgets import QAbstractItemView
 
 from pathlib import Path
+from dados.json_storage import carregar_dados
+
+LARGURA_DIA = 33
+
 
 class CalendarioAno(QWidget):
     """Cria uma aba com o calendário de um determinado ano (opção A: grade única)"""
@@ -29,7 +34,7 @@ class CalendarioAno(QWidget):
         sigla,
         ano=None,
         caminho_json: str | Path | None = None,
-        feriados=(),
+        anos_disponiveis=(),
     ):
 
         super().__init__()
@@ -38,7 +43,6 @@ class CalendarioAno(QWidget):
         self.sigla = sigla
         self.dados = dados
         self.dados_salvos = dados_salvos
-        self.feriados = tuple(feriados)
         self.row_por_nome = {}
         self.caminho_json = str(caminho_json) if caminho_json else ""
 
@@ -122,15 +126,10 @@ class CalendarioAno(QWidget):
         self.combo_opcoes = QComboBox()
         self.combo_opcoes.setFixedWidth(250)
         self.combo_opcoes.setPlaceholderText("Líder de Equipe")
+        self.combo_opcoes.addItem("Todos os líderes")
 
         for lider in self.obter_lideres_equipe():
             self.combo_opcoes.addItem(lider)
-        self.combo_opcoes.insertItem(0, "Todos")
-        self.combo_opcoes.setCurrentIndex(0)
-        self.combo_uf = QComboBox()
-        self.combo_uf.addItem("Todas as UFs", "")
-        for uf in sorted({pessoa["uf"] for pessoa in self.dados}):
-            self.combo_uf.addItem(uf, uf)
 
         # Criando campo de pesquisa
         pesquisa_layout = QHBoxLayout()
@@ -138,14 +137,15 @@ class CalendarioAno(QWidget):
         self.campo_pesquisa = QLineEdit()
         self.campo_pesquisa.setPlaceholderText("Digite um nome...")
         self.campo_pesquisa.textChanged.connect(self.filtrar_nomes)
+        self.combo_opcoes.currentIndexChanged.connect(
+            lambda: self.filtrar_nomes(self.campo_pesquisa.text())
+        )
         pesquisa_layout.addWidget(pesquisa_label)
         pesquisa_layout.addWidget(self.campo_pesquisa)
-        pesquisa_layout.addWidget(self.combo_uf)
-        self.combo_uf.currentIndexChanged.connect(lambda: self.filtrar_nomes())
-        self.combo_opcoes.currentIndexChanged.connect(lambda: self.filtrar_nomes())
 
         # Criando Tabela Nomes
         self.table_nomes = QTableWidget()
+        self.table_nomes.verticalScrollBar().valueChanged.connect(self.rolar_grade_verticalmente)
         self.table_nomes.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOn
         )
@@ -198,10 +198,10 @@ class CalendarioAno(QWidget):
         # --- ComboBox Ano || Permite escolher outro ano, ao trocar -> chama on_combo_box_ano_changed
         self.combo_ano = QComboBox()
         mes_atual = hoje.month
-        anos_para_exibir = [hoje.year - 1, hoje.year]
+        anos_para_exibir = {self.ano, *anos_disponiveis}
         if mes_atual >= 7:
-            anos_para_exibir.append(hoje.year + 1)
-        for a in anos_para_exibir:
+            anos_para_exibir.add(hoje.year + 1)
+        for a in sorted(anos_para_exibir):
             self.combo_ano.addItem(str(a))
         self.combo_ano.setCurrentText(str(self.ano))
         self.combo_ano.currentTextChanged.connect(self.on_combo_ano_changed)
@@ -462,30 +462,18 @@ class CalendarioAno(QWidget):
             item_sem.setText(f"{base}\n({total})" if total > 0 else base)
             item_sem.setToolTip(f"Total de ausências no dia: {total}")
 
+    def rolar_grade_verticalmente(self, valor):
+        if getattr(self, "tabela", None) is not None:
+            self.tabela.verticalScrollBar().setValue(valor)
+
     def sincronizar_scroll(self):
-        try:
-            # Vertical: nomes <-> grade (considera offset nas linhas fantasma)
-            def sync_nomes_to_grade(value):
-                # Ajusta valor considerando linhas fantasma ocultas
-                self.tabela.verticalScrollBar().setValue(value)
-
-            def sync_grade_to_nomes(value):
-                self.table_nomes.verticalScrollBar().setValue(value)
-
-            self.table_nomes.verticalScrollBar().valueChanged.connect(
-                sync_nomes_to_grade
-            )
-            self.tabela.verticalScrollBar().valueChanged.connect(sync_grade_to_nomes)
-
-            # Horizontal: cabeçalho <-> grade
-            self.tabela_cabecalho.horizontalScrollBar().valueChanged.connect(
-                self.tabela.horizontalScrollBar().setValue
-            )
-            self.tabela.horizontalScrollBar().valueChanged.connect(
-                self.tabela_cabecalho.horizontalScrollBar().setValue
-            )
-        except Exception:
-            pass
+        self.tabela.verticalScrollBar().valueChanged.connect(
+            self.table_nomes.verticalScrollBar().setValue
+        )
+        cabecalho = self.tabela_cabecalho.horizontalScrollBar()
+        grade = self.tabela.horizontalScrollBar()
+        grade.valueChanged.connect(cabecalho.setValue)
+        cabecalho.valueChanged.connect(grade.setValue)
 
     def montar_cabecalho(self):
         import calendar
@@ -501,6 +489,7 @@ class CalendarioAno(QWidget):
 
             if widget is not None:
                 widget.setParent(None)
+                widget.deleteLater()
 
         from PyQt6.QtWidgets import QAbstractItemView
 
@@ -516,6 +505,8 @@ class CalendarioAno(QWidget):
         meses_info = [(m, calendar.monthrange(self.ano, m)[1]) for m in range(1, 13)]
         total_colunas = sum(d for _, d in meses_info)
         tabela.setColumnCount(total_colunas)
+        tabela.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        tabela.horizontalHeader().setDefaultSectionSize(LARGURA_DIA)
 
         tabela.verticalHeader().setVisible(False)
         tabela.horizontalHeader().setVisible(False)
@@ -605,6 +596,7 @@ class CalendarioAno(QWidget):
             widget = self.grade_layout.itemAt(i).widget()
             if widget is not None:
                 widget.setParent(None)
+                widget.deleteLater()
 
         tabela = QTableWidget()  # Cria a tabela da grade
 
@@ -620,6 +612,8 @@ class CalendarioAno(QWidget):
             tabela.setRowHeight(r, ALTURA_LINHA)
 
         tabela.setColumnCount(total_colunas)
+        tabela.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        tabela.horizontalHeader().setDefaultSectionSize(LARGURA_DIA)
         tabela.setVerticalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
         tabela.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
         tabela.verticalHeader().setVisible(False)
@@ -636,7 +630,9 @@ class CalendarioAno(QWidget):
 
         # Linhas de pessoas
         self.row_por_nome.clear()
+        self.feriados = carregar_dados(self.sigla)["feriados"]
         self.celulas.clear()
+        self.linhas_por_nome.clear()
 
         for row_index, pessoa in enumerate(self.dados):
             nome_completo = (
@@ -783,8 +779,6 @@ class CalendarioAno(QWidget):
                 self.celulas.append((nome_completo, mes, dia, entrada))
 
         # Ajustes finais
-        for c in range(total_colunas):
-            tabela.setColumnWidth(c, 33)
 
         self.tabela = tabela
 
@@ -792,11 +786,6 @@ class CalendarioAno(QWidget):
         self.tabela.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         self.grade_layout.addWidget(self.tabela, 1)
-
-        if hasattr(self, "tabela_cabecalho"):
-            for col in range(self.tabela.columnCount()):
-                largura = self.tabela.columnWidth(col)
-                self.tabela_cabecalho.setColumnWidth(col, largura)
 
         self.atualizar_totais_colunas()
 
@@ -829,6 +818,7 @@ class CalendarioAno(QWidget):
         # recria a grade
         self.montar_grade()
         self.sincronizar_scroll()
+        self.filtrar_nomes(self.campo_pesquisa.text())
 
         # força o Qt a aplicar layout antes de restaurar scroll
         self.widget_grade.updateGeometry()
@@ -863,61 +853,16 @@ class CalendarioAno(QWidget):
 
     # Função que muda o ano.
     def on_combo_ano_changed(self, texto):
-        try:
-            self.ano = int(texto)
-        except:
+        if not texto:
             return
-
-        # REMOVER A GRADE ANTIGA COMPLETAMENTE ---
-        if hasattr(self, "tabela") and self.tabela is not None:
-            self.tabela.setParent(None)
-            self.tabela.deleteLater()
-            self.tabela = None
-
-        # Remove também qualquer widget restante na grade
-        for i in reversed(range(self.grade_layout.count())):
-            w = self.grade_layout.itemAt(i).widget()
-            if w is not None:
-                w.setParent(None)
-                w.deleteLater()
-
-        # --- RECRIAR A GRADE NOVA ---
-        self.montar_grade()  # cria self.tabela NOVA, limpa, sem conexões antigas
-
-        # --- RECRIAR OS MAPEAMENTOS (linhas_por_nome e row_por_nome) ---
-        self.linhas_por_nome.clear()
-        for row_index, pessoa in enumerate(self.dados):
-
-            nome_completo = (
-                f"{pessoa.get('nome','Vazio')} ({pessoa.get('matricula','Vazio')})"
-            )
-            self.linhas_por_nome[nome_completo] = []
-            for col in range(self.tabela.columnCount()):
-                widget = self.tabela.cellWidget(row_index, col)
-                if widget:
-                    self.linhas_por_nome[nome_completo].append(widget)
-
-
-        # --- RECRIAR A TABELA DE NOMES COM OFFSET ---
-        self.table_nomes.clearContents()
-
-        # Preenchendo nomes COM OFFSET
-        self.row_por_nome.clear()
-        for row_index, pessoa in enumerate(self.dados):
-            nome_completo = f"{pessoa.get('nome','Vazio')} ({pessoa.get('matricula','Vazio')})".strip()
-            item = QTableWidgetItem(nome_completo)
-            item.setFlags(Qt.ItemFlag.ItemIsEnabled)
-
-            linha = row_index
-            self.table_nomes.setItem(linha, 0, item)
-            self.table_nomes.setRowHeight(linha, 30)
-            self.row_por_nome[nome_completo] = [linha]
-
+        self.ano = int(texto)
+        self.tabela.setParent(None)
+        self.tabela.deleteLater()
+        self.tabela = None
         self.montar_cabecalho()
-
+        self.montar_grade()
         self.sincronizar_scroll()
-        self.atualizar_totais_colunas()
-        self.filtrar_nomes()
+        self.filtrar_nomes(self.campo_pesquisa.text())
 
     def obter_lideres_equipe(self) -> list[str]:
         lideres = []
@@ -936,10 +881,8 @@ class CalendarioAno(QWidget):
 
         return lideres
 
-    def filtrar_nomes(self, texto=None):
-        texto = (self.campo_pesquisa.text() if texto is None else texto).strip().casefold()
-        uf = self.combo_uf.currentData()
-        lider = self.combo_opcoes.currentText() if self.combo_opcoes.currentIndex() > 0 else ""
+    def filtrar_nomes(self, texto=""):
+        texto = (texto or "").strip().lower()
 
         for i in range(len(self.dados)):
             item = self.table_nomes.item(i, 0)
@@ -947,11 +890,16 @@ class CalendarioAno(QWidget):
             if not item:
                 continue
 
-            pessoa = self.dados[i]
-            nome = pessoa["nome"].casefold()
-            mostrar = texto in nome and (not uf or pessoa["uf"] == uf)
-            mostrar = mostrar and (not lider or pessoa.get("lider") == lider)
+            nome = self.dados[i]["nome"].lower()
 
+            if texto == "":
+                mostrar = True
+            else:
+                mostrar = nome.startswith(texto)
+
+            lider = self.combo_opcoes.currentText().rsplit(" (", 1)
+            if len(lider) == 2:
+                mostrar = mostrar and self.dados[i].get("lider_matricula") == lider[1].rstrip(")")
             self.table_nomes.setRowHidden(i, not mostrar)
 
             if hasattr(self, "tabela") and self.tabela is not None:
