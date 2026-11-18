@@ -4,6 +4,10 @@ Sistema desktop desenvolvido em **Python e PyQt6** para visualização e gerenci
 
 Este repositório apresenta uma **versão demonstrativa**, com colaboradores e registros fictícios, baseada em um projeto desenvolvido durante minha experiência de estágio.
 
+## Interface do sistema
+
+![Interface do PGD](PGD-Interface.png)
+
 ## Download da demonstração
 
 **[Baixar PGD para Windows — v1.0.0](https://github.com/jjoaosantoos/pgd-portifolio/releases/tag/v1.0.0)**
