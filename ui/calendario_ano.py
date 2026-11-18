@@ -790,7 +790,7 @@ class CalendarioAno(QWidget):
 
     def destacar_nome(self, item, pessoa):
         if pessoa.get("externo"):
-            item.setText(f"{pessoa['nome']} · {pessoa['empresa']}")
+            item.setText(f"{pessoa['nome']} ({pessoa['empresa']})")
             item.setToolTip(f"Recurso externo · {pessoa['empresa']}")
         if pessoa.get("afastado") or pessoa.get("externo"):
             item.setForeground(QColor("red"))
