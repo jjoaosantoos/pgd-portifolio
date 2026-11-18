@@ -19,7 +19,7 @@ Para executar:
 3. Extraia o conteúdo do ZIP.
 4. Abra o executável do PGD dentro da pasta extraída.
 
-A demonstração funciona localmente, sem necessidade de conexão com sistemas corporativos.
+A demonstração funciona localmente, sem conexão com sistemas corporativos. O executável para Windows permite utilizar o programa sem instalar Python, desde que o pacote seja extraído completamente.
 
 ## Funcionalidades
 
@@ -29,6 +29,10 @@ A demonstração funciona localmente, sem necessidade de conexão com sistemas c
 - Cadastro de feriados.
 - Cadastro de recursos externos.
 - Armazenamento local de informações em JSON.
+**Observação:** esta versão demonstrativa utiliza
+exclusivamente dados fictícios e armazenamento
+local em JSON. A exportação CSV está desativada
+nesta edição.
 
 ## Tecnologias utilizadas
 
