@@ -1,10 +1,41 @@
-# PGD — Painel Gestão de Dados
+# PGD — Painel de Gestão de Dados
 
-Demonstração desktop baseada no PGD de abril de 2026, feita em Python e PyQt6. O painel abre diretamente com 15 colaboradores fictícios e exemplos de férias e licenças. Os lançamentos e feriados são armazenados em JSON por área. A exportação aparece desativada.
+Sistema desktop desenvolvido em **Python e PyQt6** para visualização e gerenciamento de férias e ausências de colaboradores.
 
-## Executar no Windows
+Este repositório apresenta uma **versão demonstrativa**, com colaboradores e registros fictícios, baseada em um projeto desenvolvido durante minha experiência de estágio.
 
-No PowerShell, com Python 3.10 ou superior:
+## Download da demonstração
+
+**[Baixar PGD para Windows — v1.0.0](https://github.com/jjoaosantoos/pgd-portifolio/releases/tag/v1.0.0)**
+
+Para executar:
+
+1. Acesse o link acima.
+2. Na seção **Assets**, baixe o arquivo `PGD.zip`.
+3. Extraia o conteúdo do ZIP.
+4. Abra o executável do PGD dentro da pasta extraída.
+
+A demonstração funciona localmente, sem necessidade de conexão com sistemas corporativos.
+
+## Funcionalidades
+
+- Visualização de férias e ausências em calendário.
+- Consulta e filtros de colaboradores.
+- Registro de férias e licenças.
+- Cadastro de feriados.
+- Cadastro de recursos externos.
+- Armazenamento local de informações em JSON.
+
+## Tecnologias utilizadas
+
+- **Python:** linguagem principal.
+- **PyQt6:** interface gráfica desktop.
+- **JSON:** persistência local dos registros.
+- **Git e GitHub:** versionamento e disponibilização do projeto.
+
+## Executar pelo código-fonte
+
+Requisitos: Windows e Python 3.10 ou superior.
 
 ```powershell
 py -m venv .venv
@@ -12,6 +43,12 @@ py -m venv .venv
 .\.venv\Scripts\python.exe main.py
 ```
 
-Após a instalação, o aplicativo funciona offline. O arquivo da demonstração fica em `%LOCALAPPDATA%/PGD1-Fiel/ferias_DEMO.json`.
+Os dados da demonstração são armazenados localmente.
 
-No painel, o menu **Cadastros** abre os formulários de feriados e recursos externos. No cadastro de um recurso, informe a pessoa, a empresa e o líder responsável. O recurso aparece em vermelho no calendário e pode ser encontrado pelo filtro de líder.
+## Sobre o projeto
+
+O PGD foi desenvolvido para facilitar a consulta e a organização de informações relacionadas à disponibilidade de colaboradores.
+
+Esta versão foi adaptada para fins de portfólio, utilizando informações fictícias e armazenamento local, sem depender da infraestrutura corporativa.
+
+**Desenvolvedor:** João Victor Santos Rosa
