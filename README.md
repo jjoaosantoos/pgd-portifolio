@@ -13,3 +13,5 @@ py -m venv .venv
 ```
 
 Após a instalação, o aplicativo funciona offline. O arquivo da demonstração fica em `%LOCALAPPDATA%/PGD1-Fiel/ferias_DEMO.json`.
+
+No painel, o menu **Cadastros** abre os formulários de feriados e recursos externos. No cadastro de um recurso, informe a pessoa, a empresa e o líder responsável. O recurso aparece em vermelho no calendário e pode ser encontrado pelo filtro de líder.

@@ -227,8 +227,7 @@ class CalendarioAno(QWidget):
 
             item = QTableWidgetItem(nome_completo)
 
-            if afastado:
-                item.setForeground(QColor("red"))
+            self.destacar_nome(item, pessoa)
 
             item.setFlags(Qt.ItemFlag.ItemIsEnabled)
 
@@ -788,6 +787,25 @@ class CalendarioAno(QWidget):
         self.grade_layout.addWidget(self.tabela, 1)
 
         self.atualizar_totais_colunas()
+
+    def destacar_nome(self, item, pessoa):
+        if pessoa.get("externo"):
+            item.setText(f"{pessoa['nome']} · {pessoa['empresa']}")
+            item.setToolTip(f"Recurso externo · {pessoa['empresa']}")
+        if pessoa.get("afastado") or pessoa.get("externo"):
+            item.setForeground(QColor("red"))
+
+    def atualizar_pessoas(self, pessoas, registros):
+        self.dados = pessoas
+        self.table_nomes.setRowCount(len(pessoas))
+        for indice, pessoa in enumerate(pessoas):
+            prefixo = "** " if pessoa.get("afastado") else ""
+            item = QTableWidgetItem(f"{prefixo}{pessoa['nome']} ({pessoa['matricula']})")
+            self.destacar_nome(item, pessoa)
+            item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+            self.table_nomes.setItem(indice, 0, item)
+            self.table_nomes.setRowHeight(indice, 30)
+        self.atualizar_dados(registros)
 
     def atualizar_dados(self, novos_dados):
         self.dados_salvos = novos_dados

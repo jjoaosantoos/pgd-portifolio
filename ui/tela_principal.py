@@ -1,4 +1,5 @@
 import datetime
+from uuid import uuid4
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -9,15 +10,18 @@ from PyQt6.QtWidgets import (
     QApplication,
     QTabWidget,
     QDialog,
+    QDialogButtonBox,
     QLineEdit,
     QComboBox,
     QFormLayout,
+    QMenu,
     QSizePolicy,
+    QToolButton,
 )
 from PyQt6.QtCore import Qt, QTimer
 
 from ui.calendario_ano import CalendarioAno
-from dados.json_storage import carregar_dados, caminho_padrao_json, cadastrar_feriado
+from dados.json_storage import carregar_dados, caminho_padrao_json, cadastrar_feriado, salvar_dados
 
 from dados.db_repository import salvar_nova_versao, buscar_dados_atuais
 
@@ -43,7 +47,7 @@ class TelaPrincipal(QWidget):
 
         self.setGeometry(100, 100, 1600, 700)
 
-        self.dados = dados
+        self.colaboradores = dados
 
         # self.label_json_topo = QLabel()
         # self.label_json_topo.setStyleSheet("font-size: 10px; color: #555;")
@@ -61,6 +65,7 @@ class TelaPrincipal(QWidget):
         # self.label_json_topo.setToolTip(caminho_json_inicial)
 
         json_local = carregar_dados(self.sigla)
+        self.dados = [*self.colaboradores, *json_local.get("recursos_externos", [])]
         self.versao_json = json_local["versao"]
         self.dados_salvos = self._filtrar_dados_sigla(json_local["dados"])
         self.ano_atual = datetime.date.today().year
@@ -97,9 +102,14 @@ class TelaPrincipal(QWidget):
         layout_botoes.addWidget(self.btn_consultar)
         layout_botoes.addWidget(btn_exportar)
 
-        btn_feriados = QPushButton("Feriados")
-        layout_botoes.addWidget(btn_feriados)
-        btn_feriados.clicked.connect(self.abrir_tela_feriados)
+        btn_cadastros = QToolButton()
+        btn_cadastros.setText("Cadastros")
+        btn_cadastros.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        menu = QMenu(btn_cadastros)
+        menu.addAction("Feriados", self.abrir_tela_feriados)
+        menu.addAction("Recursos externos", self.abrir_tela_recursos_externos)
+        btn_cadastros.setMenu(menu)
+        layout_botoes.addWidget(btn_cadastros)
 
 
         layout_topo = QHBoxLayout()
@@ -160,6 +170,77 @@ class TelaPrincipal(QWidget):
             if sig == s:
                 filtrado.append(item)
         return filtrado
+
+    def abrir_tela_recursos_externos(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Cadastro de Recursos Externos")
+        dialog.resize(440, 225)
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+
+        titulo = QLabel("Cadastrar Recurso Externo")
+        titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        titulo.setStyleSheet("font-size: 20px; font-weight: bold; margin-bottom: 8px;")
+        layout.addWidget(titulo)
+
+        campos = QFormLayout()
+        campos.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        campos.setHorizontalSpacing(12)
+        campos.setVerticalSpacing(12)
+        layout.addLayout(campos)
+        nome = QLineEdit()
+        nome.setPlaceholderText("Nome da pessoa")
+        empresa = QLineEdit()
+        empresa.setPlaceholderText("Nome da empresa")
+        lider = QComboBox()
+        for pessoa in self.colaboradores:
+            if "LIDER DE EQUIPE" in pessoa.get("funcao", ""):
+                lider.addItem(f"{pessoa['nome']} ({pessoa['matricula']})", pessoa["matricula"])
+        lider.setPlaceholderText("Selecione o líder responsável")
+        lider.setCurrentIndex(-1)
+        for rotulo, campo in (("Recurso:", nome), ("Empresa:", empresa), ("Líder:", lider)):
+            campo.setMinimumHeight(32)
+            campos.addRow(rotulo, campo)
+
+        acoes = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+        )
+        cadastrar = acoes.button(QDialogButtonBox.StandardButton.Save)
+        cadastrar.setText("Cadastrar")
+        acoes.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
+        layout.addWidget(acoes)
+
+        def validar():
+            cadastrar.setEnabled(bool(nome.text().strip() and empresa.text().strip() and lider.currentData()))
+
+        def salvar():
+            recurso = {
+                "nome": nome.text().strip(),
+                "empresa": empresa.text().strip(),
+                "matricula": f"EXT-{uuid4().hex[:12]}",
+                "lider_matricula": lider.currentData(),
+                "externo": True,
+            }
+            try:
+                documento = carregar_dados(self.sigla)
+                externos = documento.setdefault("recursos_externos", [])
+                externos.append(recurso)
+                salvar_dados(documento, self.sigla)
+            except (OSError, ValueError) as erro:
+                QMessageBox.critical(dialog, "Erro ao salvar recurso", str(erro))
+                return
+            self.dados = [*self.colaboradores, *externos]
+            self.calendario.atualizar_pessoas(self.dados, self.dados_salvos)
+            dialog.accept()
+
+        nome.textChanged.connect(validar)
+        empresa.textChanged.connect(validar)
+        lider.currentIndexChanged.connect(validar)
+        acoes.accepted.connect(salvar)
+        acoes.rejected.connect(dialog.reject)
+        validar()
+        dialog.exec()
 
     def abrir_tela_feriados(self):
         dialog = QDialog(self)
@@ -387,7 +468,8 @@ class TelaPrincipal(QWidget):
                     return
             self.dados_salvos = dados
             self.versao_atual = self.versao_json = resultado["versao"]
-            self.calendario.atualizar_dados(dados)
+            self.dados = [*self.colaboradores, *resultado.get("recursos_externos", [])]
+            self.calendario.atualizar_pessoas(self.dados, dados)
             self.atualizar_status_consultar(False)
             self.atualizar_titulo_janela()
             QMessageBox.information(self, "Consulta", "Dados recarregados do JSON local.")
